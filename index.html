@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI in Education: Tech Lead Comfort Survey</title>
+    <title>AI Readiness Self-Assessment</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -35,8 +34,12 @@
             color: white;
             border-color: #3b82f6; /* border-blue-600 */
         }
-        .results-chart-container {
-            height: 300px;
+        .badge-container {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
         }
     </style>
 </head>
@@ -44,9 +47,8 @@
 
     <div id="app-container" class="max-w-4xl mx-auto p-4 sm:p-6 md:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">AI in Education Survey</h1>
-            <p class="mt-2 text-lg text-gray-600">For Technology Leaders and Administrators</p>
-            <p id="user-id-display" class="text-sm text-gray-500 mt-4"></p>
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">AI Readiness Self-Assessment</h1>
+            <p class="mt-2 text-lg text-gray-600">Gauge your personal and organizational readiness for AI in education.</p>
         </header>
 
         <!-- Survey Section -->
@@ -76,7 +78,7 @@
                     Next
                 </button>
                 <button id="submit-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 hidden">
-                    Submit & See Results
+                    Calculate My Readiness Badge
                 </button>
             </div>
         </div>
@@ -84,53 +86,33 @@
         <!-- Loading Spinner -->
         <div id="loading-spinner" class="text-center p-8 hidden">
              <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-             <p class="mt-4 text-gray-600">Submitting and crunching the numbers...</p>
+             <p class="mt-4 text-gray-600">Calculating your results...</p>
         </div>
 
         <!-- Results Section -->
-        <div id="results-section" class="hidden mt-12">
-            <h2 class="text-3xl font-bold text-center text-gray-900 mb-8">Survey Results</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Charts will be injected here -->
-            </div>
-             <div class="mt-8 text-center">
-                <button id="retake-survey-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
-                    Retake Survey
-                </button>
-            </div>
+        <div id="results-section" class="hidden mt-12 text-center">
+            <!-- Badge and summary will be injected here -->
         </div>
 
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-        // --- CONFIGURATION ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ai-survey-app';
-        
-        // --- FIREBASE INITIALIZATION ---
-        let app, db, auth, userId;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            // setLogLevel('debug'); // Uncomment for detailed logs
-        } catch (e) {
-            console.error("Firebase initialization failed:", e);
-            document.getElementById('app-container').innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert"><strong class="font-bold">Error!</strong><span class="block sm:inline"> Could not connect to the database. Please check the console for details.</span></div>`;
-        }
-
         // --- SURVEY QUESTIONS ---
+        // Note: Only 'comfortLevel' and 'schoolReadiness' are used for scoring.
         const questions = [
             {
                 id: 'comfortLevel',
-                text: 'On a scale of 1-5, how comfortable are you with integrating AI tools into the classroom?',
+                text: 'On a scale of 1-5, how comfortable are you personally with integrating AI tools into the classroom?',
                 type: 'rating',
                 options: [1, 2, 3, 4, 5],
                 labels: { 1: 'Very Uncomfortable', 5: 'Very Comfortable' }
+            },
+            {
+                id: 'schoolReadiness',
+                text: 'How prepared is your school/district to adopt AI technologies?',
+                type: 'rating',
+                options: [1, 2, 3, 4, 5],
+                labels: { 1: 'Not at all prepared', 5: 'Very prepared' }
             },
             {
                 id: 'aiApplications',
@@ -144,13 +126,6 @@
                 text: 'What is your biggest concern regarding AI in education?',
                 type: 'single-choice',
                 options: ['Data Privacy & Security', 'Ethical Implications & Bias', 'Student Cheating & Academic Integrity', 'Teacher Training & Adoption', 'Cost & Equity of Access', 'Potential for Job Displacement']
-            },
-            {
-                id: 'schoolReadiness',
-                text: 'How prepared is your school/district to adopt AI technologies?',
-                type: 'rating',
-                options: [1, 2, 3, 4, 5],
-                labels: { 1: 'Not at all prepared', 5: 'Very prepared' }
             },
             {
                 id: 'neededSupport',
@@ -174,28 +149,6 @@
         const submitBtn = document.getElementById('submit-btn');
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
-        const retakeSurveyBtn = document.getElementById('retake-survey-btn');
-        const userIdDisplay = document.getElementById('user-id-display');
-
-        // --- AUTHENTICATION ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                userIdDisplay.textContent = `Your anonymous ID: ${userId}`;
-                initializeSurvey();
-            } else {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Authentication failed:", error);
-                    userIdDisplay.textContent = "Could not establish a secure session.";
-                }
-            }
-        });
 
         // --- FUNCTIONS ---
 
@@ -204,6 +157,7 @@
             userAnswers = {};
             surveySection.classList.remove('hidden');
             resultsSection.classList.add('hidden');
+            resultsSection.innerHTML = ''; // Clear old results
             loadingSpinner.classList.add('hidden');
             submitBtn.classList.add('hidden');
             nextBtn.classList.remove('hidden');
@@ -230,7 +184,7 @@
             const optionsContainer = document.getElementById(`options-${index}`);
             if (question.type === 'rating') {
                 const ratingContainer = document.createElement('div');
-                ratingContainer.className = 'flex justify-between items-center flex-wrap gap-2';
+                ratingContainer.className = 'flex justify-center sm:justify-between items-center flex-wrap gap-2';
                 question.options.forEach(option => {
                     const button = document.createElement('button');
                     button.textContent = option;
@@ -268,9 +222,6 @@
                 } else {
                     if (answerArray.length < limit) {
                         answerArray.push(value);
-                    } else {
-                         // Optional: Add user feedback that limit is reached
-                        console.log(`Limit of ${limit} reached for ${questionId}`);
                     }
                 }
             } else { // single-choice or rating
@@ -281,7 +232,6 @@
         }
         
         function updateOptionsUI(questionId) {
-            const question = questions.find(q => q.id === questionId);
             const index = questions.findIndex(q => q.id === questionId);
             const optionsContainer = document.getElementById(`options-${index}`);
             const buttons = optionsContainer.querySelectorAll('.option-button');
@@ -292,8 +242,7 @@
                 if (Array.isArray(userAnswers[questionId])) {
                     isSelected = userAnswers[questionId].includes(value);
                 } else {
-                    // For rating, we convert the dataset value back to a number for comparison
-                    isSelected = question.type === 'rating' ? parseInt(userAnswers[questionId]) === parseInt(value) : userAnswers[questionId] === value;
+                    isSelected = String(userAnswers[questionId]) === value;
                 }
                 
                 if (isSelected) {
@@ -304,20 +253,12 @@
             });
         }
 
-
         function updateDisplay() {
-            // Update question visibility
             document.querySelectorAll('.question-card').forEach((card, index) => {
-                if (index === currentQuestionIndex) {
-                    card.classList.remove('hidden-question');
-                    card.classList.add('visible-question');
-                } else {
-                    card.classList.add('hidden-question');
-                    card.classList.remove('visible-question');
-                }
+                card.classList.toggle('visible-question', index === currentQuestionIndex);
+                card.classList.toggle('hidden-question', index !== currentQuestionIndex);
             });
 
-            // Update progress bar
             const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
             progressBar.style.width = `${progress}%`;
             progressText.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
@@ -326,13 +267,10 @@
         }
         
         function updateNavigation() {
-             // Update button states
             prevBtn.disabled = currentQuestionIndex === 0;
-
             const currentQuestionId = questions[currentQuestionIndex].id;
             const isAnswered = userAnswers[currentQuestionId] && (Array.isArray(userAnswers[currentQuestionId]) ? userAnswers[currentQuestionId].length > 0 : userAnswers[currentQuestionId] !== undefined);
-            nextBtn.disabled = !isAnswered;
-
+            
             if (currentQuestionIndex === questions.length - 1) {
                 nextBtn.classList.add('hidden');
                 submitBtn.classList.remove('hidden');
@@ -340,134 +278,72 @@
             } else {
                 nextBtn.classList.remove('hidden');
                 submitBtn.classList.add('hidden');
+                nextBtn.disabled = !isAnswered;
             }
         }
 
-        async function submitSurvey() {
+        function calculateAndShowBadge() {
             surveySection.classList.add('hidden');
             loadingSpinner.classList.remove('hidden');
 
-            try {
-                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/responses`), {
-                    ...userAnswers,
-                    submittedAt: new Date(),
-                    userId: userId
-                });
-                console.log("Document written with ID: ", docRef.id);
-                await showResults();
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                loadingSpinner.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert"><strong class="font-bold">Submission Failed!</strong><span class="block sm:inline"> Could not save your response. Please try again later.</span></div>`;
+            const score = parseInt(userAnswers.comfortLevel || 0) + parseInt(userAnswers.schoolReadiness || 0);
+            let level, description, nextSteps, badgeSVG, badgeColor;
+
+            if (score <= 4) {
+                level = 'AI Explorer';
+                badgeColor = 'bg-blue-100 text-blue-800';
+                description = "You're at the beginning of your AI journey, curious and ready to learn more. This is the perfect starting point for discovery and growth.";
+                nextSteps = "Focus on foundational learning. Explore introductory AI articles, watch webinars for educators, and start discussions with colleagues about potential AI uses.";
+                badgeSVG = `<path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>`;
+            } else if (score <= 7) {
+                level = 'AI Adopter';
+                badgeColor = 'bg-green-100 text-green-800';
+                description = "You have a solid understanding and are comfortable with the idea of AI in education. You're ready to start implementing and experimenting with AI tools.";
+                nextSteps = "Move from theory to practice. Identify a specific problem AI can solve, pilot a vetted AI tool in a controlled setting, and seek out professional development opportunities.";
+                badgeSVG = `<path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z"/>`;
+            } else {
+                level = 'AI Champion';
+                badgeColor = 'bg-purple-100 text-purple-800';
+                description = "You are a leader in this space, ready to guide others and innovate. You see the potential of AI and are prepared to drive strategic adoption.";
+                nextSteps = "Lead the charge. Develop school-wide AI policies, mentor other educators, and create a strategic plan for scalable and equitable AI integration.";
+                badgeSVG = `<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18a4.5 4.5 0 00-1.897-3.597A4.5 4.5 0 0012 12.75a4.5 4.5 0 00-2.603 1.653A4.5 4.5 0 007.5 18m13.5-9a4.5 4.5 0 00-4.5-4.5H12a4.5 4.5 0 00-4.5 4.5v.75M16.5 18a4.5 4.5 0 00-1.897-3.597A4.5 4.5 0 0012 12.75a4.5 4.5 0 00-2.603 1.653A4.5 4.5 0 007.5 18"/>`;
             }
-        }
 
-        async function showResults() {
-            loadingSpinner.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            resultsSection.querySelector('.grid').innerHTML = '<p class="text-center md:col-span-2">Loading results...</p>';
+            // Use a timeout to simulate calculation and make the transition smoother
+            setTimeout(() => {
+                loadingSpinner.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                resultsSection.innerHTML = `
+                    <div class="bg-white p-8 rounded-xl shadow-lg badge-container">
+                        <div class="mx-auto ${badgeColor} rounded-full w-24 h-24 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12">
+                                ${badgeSVG}
+                            </svg>
+                        </div>
+                        <h2 class="text-3xl font-bold text-gray-900 mt-6">You're an ${level}!</h2>
+                        <p class="text-gray-600 mt-2 text-lg">Your readiness score is <strong>${score} out of 10</strong>.</p>
+                        <p class="max-w-2xl mx-auto mt-4 text-gray-700">${description}</p>
+                        
+                        <div class="text-left max-w-2xl mx-auto mt-8 bg-gray-50 p-4 rounded-lg border">
+                           <h4 class="font-semibold text-gray-800">Suggested Next Steps:</h4>
+                           <p class="text-gray-600 mt-1">${nextSteps}</p>
+                        </div>
 
-            try {
-                const querySnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/responses`));
-                const allResponses = [];
-                querySnapshot.forEach((doc) => {
-                    allResponses.push(doc.data());
-                });
+                        <div class="mt-8 p-4 bg-blue-50 text-blue-700 rounded-lg">
+                            <p class="font-semibold">Track Your Growth!</p>
+                            <p class="mt-1">We will conduct this assessment again during our first tech lead meeting next month. You can use your results today as a baseline to gauge your growth and progress over time.</p>
+                        </div>
 
-                if(allResponses.length === 0) {
-                    resultsSection.querySelector('.grid').innerHTML = '<p class="text-center md:col-span-2">No results to display yet. You are the first respondent!</p>';
-                    return;
-                }
-
-                generateCharts(allResponses);
-
-            } catch(e) {
-                console.error("Error fetching results: ", e);
-                resultsSection.querySelector('.grid').innerHTML = `<p class="text-center text-red-600 md:col-span-2">Could not load aggregated results.</p>`;
-            }
-        }
-
-        function generateCharts(data) {
-            const resultsGrid = resultsSection.querySelector('.grid');
-            resultsGrid.innerHTML = ''; // Clear previous charts
-
-            questions.forEach(q => {
-                const chartContainer = document.createElement('div');
-                chartContainer.className = 'bg-white p-4 rounded-lg shadow';
-                const chartTitle = document.createElement('h3');
-                chartTitle.className = 'text-lg font-semibold mb-2 text-center';
-                chartTitle.textContent = q.text;
-                const canvasContainer = document.createElement('div');
-                canvasContainer.className = 'results-chart-container';
-                const canvas = document.createElement('canvas');
-                canvasContainer.appendChild(canvas);
-                chartContainer.appendChild(chartTitle);
-                chartContainer.appendChild(canvasContainer);
-                resultsGrid.appendChild(chartContainer);
-
-                const ctx = canvas.getContext('2d');
-                let chartData, chartType;
-
-                if (q.type === 'rating' || q.type === 'single-choice') {
-                    const counts = q.options.reduce((acc, option) => {
-                        acc[option] = 0;
-                        return acc;
-                    }, {});
-                    data.forEach(response => {
-                        if (response[q.id]) {
-                            counts[response[q.id]]++;
-                        }
-                    });
-                    chartData = {
-                        labels: Object.keys(counts),
-                        datasets: [{
-                            label: 'Number of Responses',
-                            data: Object.values(counts),
-                            backgroundColor: ['#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e3a8a', '#1e40af'],
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                            borderWidth: 1
-                        }]
-                    };
-                    chartType = 'bar';
-                } else if (q.type === 'multiple-choice') {
-                     const counts = q.options.reduce((acc, option) => {
-                        acc[option] = 0;
-                        return acc;
-                    }, {});
-                    data.forEach(response => {
-                        if (response[q.id] && Array.isArray(response[q.id])) {
-                           response[q.id].forEach(choice => {
-                               if(counts.hasOwnProperty(choice)) {
-                                   counts[choice]++;
-                               }
-                           });
-                        }
-                    });
-                     chartData = {
-                        labels: Object.keys(counts),
-                        datasets: [{
-                            label: 'Number of Selections',
-                            data: Object.values(counts),
-                            backgroundColor: ['#818cf8', '#6366f1', '#4f46e5', '#4338ca', '#3730a3', '#312e81'],
-                        }]
-                    };
-                    chartType = 'doughnut';
-                }
-                
-                new Chart(ctx, {
-                    type: chartType,
-                    data: chartData,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: chartType === 'doughnut' ? 'top' : 'none',
-                            },
-                        },
-                        scales: chartType === 'bar' ? { y: { beginAtZero: true, ticks: { precision: 0 } } } : {}
-                    }
-                });
-            });
+                        <div class="mt-8">
+                            <button id="retake-survey-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
+                                Take Again
+                            </button>
+                        </div>
+                    </div>
+                `;
+                // Re-add event listener for the new button
+                document.getElementById('retake-survey-btn').addEventListener('click', initializeSurvey);
+            }, 1000);
         }
 
         // --- EVENT LISTENERS ---
@@ -485,9 +361,13 @@
             }
         });
 
-        submitBtn.addEventListener('click', submitSurvey);
-        retakeSurveyBtn.addEventListener('click', initializeSurvey);
+        submitBtn.addEventListener('click', calculateAndShowBadge);
+
+        // --- INITIALIZATION ---
+        initializeSurvey();
 
     </script>
 </body>
 </html>
+
+
